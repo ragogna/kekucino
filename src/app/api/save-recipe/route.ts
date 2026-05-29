@@ -13,7 +13,7 @@ const BodySchema = z.object({
     categoria: z.string(),
   }),
   timing: z.enum(["veloce", "media", "lunga"]),
-  recipe: z.record(z.unknown()),
+  recipe: z.record(z.string(), z.unknown()),
 });
 
 export async function POST(req: NextRequest) {

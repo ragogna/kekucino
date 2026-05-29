@@ -5,13 +5,15 @@ import { useRouter } from "next/navigation";
 import {
   Clock, ChefHat, Users, Utensils, CheckCircle2,
   Circle, Lightbulb, AlertTriangle, Wine, Leaf,
-  BookmarkPlus, RotateCcw, Sparkles
+  BookmarkPlus, RotateCcw, Sparkles, Heart, FileDown
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useCookingStore } from "@/store/cooking";
 import { formatTime, difficultyLabel } from "@/lib/utils";
 import { TimingVariant } from "@/types";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const TIMING_OPTIONS: { value: TimingVariant; label: string; icon: string; desc: string }[] = [
   { value: "veloce", label: "Veloce", icon: "⚡", desc: "Massima praticità" },
@@ -21,11 +23,13 @@ const TIMING_OPTIONS: { value: TimingVariant; label: string; icon: string; desc:
 
 export default function RicettaPage() {
   const router = useRouter();
-  const { getIdToken } = useAuth();
+  const { getIdToken, user } = useAuth();
   const { selectedDish, selectedTiming, setSelectedTiming, ingredients, recipe, setRecipe, reset } = useCookingStore();
   const [loading, setLoading] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [savedRecipeId, setSavedRecipeId] = useState<string | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (!selectedDish) {
@@ -110,6 +114,8 @@ export default function RicettaPage() {
         body: JSON.stringify({ dish: selectedDish, timing: selectedTiming, recipe }),
       });
       if (res.ok) {
+        const data = await res.json();
+        setSavedRecipeId(data.id);
         toast.success("Ricetta salvata nella tua storia!");
       } else {
         toast.error("Errore nel salvataggio");
@@ -118,6 +124,35 @@ export default function RicettaPage() {
       toast.error("Errore di connessione");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function toggleFavorite() {
+    if (!savedRecipeId || !user) {
+      toast.info("Salva prima la ricetta per aggiungerla ai preferiti");
+      return;
+    }
+    const newVal = !isFavorite;
+    setIsFavorite(newVal);
+    try {
+      await updateDoc(doc(db, "users", user.uid, "recipes", savedRecipeId), {
+        isFavorite: newVal,
+      });
+      toast.success(newVal ? "Aggiunta ai preferiti ❤️" : "Rimossa dai preferiti");
+    } catch {
+      setIsFavorite(!newVal);
+      toast.error("Errore nell'aggiornamento");
+    }
+  }
+
+  async function handleExportPDF() {
+    if (!selectedDish || !recipe) return;
+    try {
+      const { exportRecipePDF } = await import("@/lib/export-pdf");
+      exportRecipePDF(selectedDish, selectedTiming, recipe);
+      toast.success("PDF esportato!");
+    } catch {
+      toast.error("Errore nell'esportazione PDF");
     }
   }
 
@@ -420,21 +455,42 @@ export default function RicettaPage() {
           )}
 
           {/* Action buttons */}
-          <div className="flex gap-3 pb-6">
+          <div className="grid grid-cols-2 gap-3 pb-2">
             <button
               onClick={saveRecipe}
-              disabled={saving}
-              className="flex-1 food-card py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold text-primary hover:border-primary/50 transition-all disabled:opacity-60"
+              disabled={saving || !!savedRecipeId}
+              className="food-card py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold text-primary hover:border-primary/50 transition-all disabled:opacity-60"
             >
               <BookmarkPlus className="w-4 h-4" />
-              {saving ? "Salvando..." : "Salva ricetta"}
+              {saving ? "Salvando..." : savedRecipeId ? "Salvata ✓" : "Salva ricetta"}
+            </button>
+            <button
+              onClick={toggleFavorite}
+              className={`food-card py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold transition-all ${
+                isFavorite
+                  ? "border-red-300 bg-red-50 text-red-600 dark:bg-red-950/20"
+                  : "text-muted-foreground hover:text-red-500 hover:border-red-200"
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${isFavorite ? "fill-red-500 text-red-500" : ""}`} />
+              {isFavorite ? "Preferita ❤️" : "Aggiungi ai ❤️"}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3 pb-6">
+            <button
+              onClick={handleExportPDF}
+              disabled={!recipe}
+              className="food-card py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold text-muted-foreground hover:text-primary hover:border-primary/50 transition-all disabled:opacity-60"
+            >
+              <FileDown className="w-4 h-4" />
+              Esporta PDF
             </button>
             <button
               onClick={() => {
                 reset();
                 router.push("/cucina");
               }}
-              className="flex-1 food-card py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-all"
+              className="food-card py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-all"
             >
               <RotateCcw className="w-4 h-4" />
               Nuova ricerca

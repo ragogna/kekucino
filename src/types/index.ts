@@ -63,4 +63,5 @@ export interface SavedRecipe {
   recipe: Recipe;
   photos: string[];
   createdAt: number;
+  isFavorite?: boolean;
 }
