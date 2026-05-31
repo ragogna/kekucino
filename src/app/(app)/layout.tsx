@@ -3,13 +3,16 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { Camera, BookOpen, LogOut } from "lucide-react";
+import { Camera, BookOpen, LogOut, MessageCircle } from "lucide-react";
 import { RobotChefIcon } from "@/components/RobotChefIcon";
+import { useCookingStore } from "@/store/cooking";
+import { APP_VERSION, formatCostEur } from "@/lib/utils";
 import Link from "next/link";
 import { toast } from "sonner";
 
 const navItems = [
   { href: "/cucina", icon: Camera, label: "Cucina" },
+  { href: "/chat", icon: MessageCircle, label: "Chef" },
   { href: "/storia", icon: BookOpen, label: "Storia" },
 ];
 
@@ -17,11 +20,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const lastCallCost = useCookingStore((s) => s.lastCallCost);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/");
-    }
+    if (!loading && !user) router.replace("/");
   }, [user, loading, router]);
 
   if (loading || !user) {
@@ -41,6 +43,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const costText = lastCallCost ? formatCostEur(lastCallCost) : null;
+
   return (
     <div className="min-h-screen flex flex-col bg-background pb-safe-bottom">
       {/* Header */}
@@ -50,11 +54,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="w-8 h-8 chef-gradient rounded-xl flex items-center justify-center overflow-hidden">
               <RobotChefIcon size={28} />
             </div>
-            <span className="font-bold text-foreground">
-              Ke<span className="text-primary">Kucino</span>
-            </span>
+            <div className="flex flex-col leading-none">
+              <span className="font-bold text-foreground text-sm">
+                Ke<span className="text-primary">Kucino</span>
+              </span>
+              <span className="text-[9px] text-muted-foreground font-mono">v{APP_VERSION}</span>
+            </div>
           </Link>
+
           <div className="flex items-center gap-2">
+            {costText && (
+              <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                {costText}
+              </span>
+            )}
             {user.photoURL && (
               <img
                 src={user.photoURL}

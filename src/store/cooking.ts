@@ -10,6 +10,7 @@ interface CookingState {
   selectedTiming: TimingVariant;
   recipe: Recipe | null;
   step: "foto" | "ingredienti" | "piatti" | "ricetta";
+  lastCallCost: number | null;
 }
 
 interface CookingActions {
@@ -19,11 +20,13 @@ interface CookingActions {
   setIngredients: (ingredients: DetectedIngredient[]) => void;
   updateIngredient: (index: number, ingredient: DetectedIngredient) => void;
   removeIngredient: (index: number) => void;
+  toggleConsumed: (index: number) => void;
   setDishes: (dishes: DishProposal[]) => void;
   selectDish: (dish: DishProposal) => void;
   setSelectedTiming: (timing: TimingVariant) => void;
   setRecipe: (recipe: Recipe) => void;
   setStep: (step: CookingState["step"]) => void;
+  setLastCallCost: (cost: number) => void;
   reset: () => void;
 }
 
@@ -35,6 +38,7 @@ const initialState: CookingState = {
   selectedTiming: "media",
   recipe: null,
   step: "foto",
+  lastCallCost: null,
 };
 
 export const useCookingStore = create<CookingState & CookingActions>()(
@@ -45,32 +49,38 @@ export const useCookingStore = create<CookingState & CookingActions>()(
       addPhoto: (photo) => set((s) => ({ photos: [...s.photos, photo] })),
       removePhoto: (index) =>
         set((s) => ({ photos: s.photos.filter((_, i) => i !== index) })),
-      setIngredients: (ingredients) => set({ ingredients }),
+      setIngredients: (ingredients) => set({ ingredients: Array.isArray(ingredients) ? ingredients : [] }),
       updateIngredient: (index, ingredient) =>
         set((s) => ({
           ingredients: s.ingredients.map((ing, i) => (i === index ? ingredient : ing)),
         })),
       removeIngredient: (index) =>
+        set((s) => ({ ingredients: s.ingredients.filter((_, i) => i !== index) })),
+      toggleConsumed: (index) =>
         set((s) => ({
-          ingredients: s.ingredients.filter((_, i) => i !== index),
+          ingredients: s.ingredients.map((ing, i) =>
+            i === index ? { ...ing, consumed: !ing.consumed } : ing
+          ),
         })),
       setDishes: (dishes) => set({ dishes }),
       selectDish: (dish) => set({ selectedDish: dish }),
       setSelectedTiming: (selectedTiming) => set({ selectedTiming }),
       setRecipe: (recipe) => set({ recipe }),
       setStep: (step) => set({ step }),
+      setLastCallCost: (cost) => set({ lastCallCost: cost }),
       reset: () => set(initialState),
     }),
     {
       name: "kekucino-session",
       partialize: (state) => ({
-        photos: state.photos,
+        // photos intentionally excluded — too large for localStorage
         ingredients: state.ingredients,
         dishes: state.dishes,
         selectedDish: state.selectedDish,
         selectedTiming: state.selectedTiming,
         recipe: state.recipe,
         step: state.step,
+        // lastCallCost intentionally excluded — session only
       }),
     }
   )

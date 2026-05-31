@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const protectedPaths = ["/cucina", "/ingredienti", "/piatti", "/ricetta"];
-
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
+export function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
   response.headers.set("X-Content-Type-Options", "nosniff");
@@ -22,7 +18,7 @@ export function middleware(request: NextRequest) {
       "img-src 'self' blob: data: https://lh3.googleusercontent.com https://firebasestorage.googleapis.com",
       "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://identitytoolkit.googleapis.com wss://*.firebaseio.com",
       "font-src 'self' data:",
-      "frame-src https://accounts.google.com",
+      "frame-src https://accounts.google.com https://kekucino.firebaseapp.com",
     ].join("; ")
   );
 

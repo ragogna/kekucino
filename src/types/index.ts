@@ -3,6 +3,13 @@ export interface DetectedIngredient {
   quantita_stimata: string;
   categoria: "proteina" | "verdura" | "frutta" | "latticini" | "carboidrato" | "condimento" | "spezia" | "altro";
   confidenza: number;
+  consumed?: boolean;
+}
+
+export interface TokenUsage {
+  promptTokens: number;
+  outputTokens: number;
+  costEur: number;
 }
 
 export interface DishProposal {

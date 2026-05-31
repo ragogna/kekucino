@@ -2,9 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut } from "firebase/auth";
-import { auth, googleProvider } from "@/lib/firebase";
-import { doc, setDoc, getFirestore, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth, googleProvider, db } from "@/lib/firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 interface AuthContextType {
   user: User | null;
@@ -21,7 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
     });
@@ -30,18 +29,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signInWithGoogle() {
     const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-    await setDoc(
-      doc(db, "users", user.uid),
+    // Fire-and-forget: don't block auth on Firestore write
+    setDoc(
+      doc(db, "users", result.user.uid),
       {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
+        uid: result.user.uid,
+        email: result.user.email,
+        displayName: result.user.displayName,
+        photoURL: result.user.photoURL,
         lastLogin: serverTimestamp(),
       },
       { merge: true }
-    );
+    ).catch(console.error);
   }
 
   async function signOut() {

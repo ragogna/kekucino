@@ -4,17 +4,7 @@ import { getGeminiModel, PROMPTS, calcCostEur } from "@/lib/gemini";
 import { verifyAuthToken } from "@/lib/auth-server";
 
 const BodySchema = z.object({
-  ingredients: z
-    .array(
-      z.object({
-        nome: z.string(),
-        quantita_stimata: z.string(),
-        categoria: z.string(),
-        confidenza: z.number(),
-      })
-    )
-    .min(1, "Almeno un ingrediente richiesto")
-    .max(50),
+  text: z.string().min(1).max(2000),
 });
 
 export async function POST(req: NextRequest) {
@@ -24,17 +14,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = BodySchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Dati non validi" }, { status: 400 });
+      return NextResponse.json({ error: "Testo non valido" }, { status: 400 });
     }
 
-    const { ingredients } = parsed.data;
-
-    const ingredientList = ingredients
-      .map((i) => `${i.nome} (${i.quantita_stimata})`)
-      .join(", ");
-
     const model = getGeminiModel();
-    const result = await model.generateContent(PROMPTS.proposeDishes(ingredientList));
+    const result = await model.generateContent(PROMPTS.analyzeText(parsed.data.text));
     const text = result.response.text().trim();
     const meta = result.response.usageMetadata;
     const tokenUsage = {
@@ -45,16 +29,16 @@ export async function POST(req: NextRequest) {
 
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      return NextResponse.json({ error: "Impossibile generare proposte. Riprova." }, { status: 422 });
+      return NextResponse.json({ error: "Impossibile analizzare il testo. Riprova." }, { status: 422 });
     }
 
-    const dishes = JSON.parse(jsonMatch[0]);
-    return NextResponse.json({ dishes, tokenUsage });
+    const ingredients = JSON.parse(jsonMatch[0]);
+    return NextResponse.json({ ingredients, tokenUsage });
   } catch (error: unknown) {
     if (error instanceof Error && error.message.includes("authorization")) {
       return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
     }
-    console.error("[dishes] error:", error);
-    return NextResponse.json({ error: "Errore nella generazione dei piatti" }, { status: 500 });
+    console.error("[analyze-text] error:", error);
+    return NextResponse.json({ error: "Errore nell'analisi del testo" }, { status: 500 });
   }
 }

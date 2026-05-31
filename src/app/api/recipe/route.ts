@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getGeminiModel, PROMPTS } from "@/lib/gemini";
+import { getGeminiModel, PROMPTS, calcCostEur } from "@/lib/gemini";
 import { verifyAuthToken } from "@/lib/auth-server";
 
 const BodySchema = z.object({
@@ -27,6 +27,12 @@ export async function POST(req: NextRequest) {
       PROMPTS.getRecipe(dishName, timing, timeMinutes, ingredients)
     );
     const text = result.response.text().trim();
+    const meta = result.response.usageMetadata;
+    const tokenUsage = {
+      promptTokens: meta?.promptTokenCount ?? 0,
+      outputTokens: meta?.candidatesTokenCount ?? 0,
+      costEur: calcCostEur(meta?.promptTokenCount ?? 0, meta?.candidatesTokenCount ?? 0),
+    };
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -34,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     const recipe = JSON.parse(jsonMatch[0]);
-    return NextResponse.json({ recipe });
+    return NextResponse.json({ recipe, tokenUsage });
   } catch (error: unknown) {
     if (error instanceof Error && error.message.includes("authorization")) {
       return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });

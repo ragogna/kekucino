@@ -8,8 +8,9 @@ export const metadata: Metadata = {
   description: "Fotografa il frigo, ricevi ricette da chef stellato",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "KeKucino",
+    startupImage: [],
   },
 };
 
