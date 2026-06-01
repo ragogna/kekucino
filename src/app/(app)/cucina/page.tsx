@@ -28,7 +28,7 @@ export default function CucinaPage() {
   const { getIdToken, user } = useAuth();
   const {
     photos, addPhoto, removePhoto, setIngredients, setDishes,
-    reset, setStep, setRecipe, selectDish, setSelectedTiming, setLastCallCost,
+    reset, setStep, setRecipe, selectDish, setSelectedTiming, addCost,
   } = useCookingStore();
   const [loading, setLoading] = useState(false);
   const [scanIndex, setScanIndex] = useState(-1);
@@ -110,7 +110,7 @@ export default function CucinaPage() {
           return;
         }
         const data = await res.json();
-        if (data.tokenUsage?.costEur) setLastCallCost(data.tokenUsage.costEur);
+        if (data.tokenUsage?.costEur) addCost(data.tokenUsage.costEur);
         const ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
         if (ingredients.length === 0) {
           toast.error("Nessun ingrediente rilevato. Aggiungi foto più nitide o con più ingredienti.");
@@ -184,7 +184,7 @@ export default function CucinaPage() {
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? "Errore nell'analisi"); return; }
-      if (data.tokenUsage?.costEur) setLastCallCost(data.tokenUsage.costEur);
+      if (data.tokenUsage?.costEur) addCost(data.tokenUsage.costEur);
       setIngredients(data.ingredients);
       setDishes([]);
       setStep("ingredienti");

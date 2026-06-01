@@ -20,7 +20,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const lastCallCost = useCookingStore((s) => s.lastCallCost);
+  const totalCost = useCookingStore((s) => s.totalCost);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/");
@@ -43,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const costText = lastCallCost ? formatCostEur(lastCallCost) : null;
+  const costText = totalCost > 0 ? formatCostEur(totalCost) : null;
 
   return (
     <div className="min-h-screen flex flex-col bg-background pb-safe-bottom">

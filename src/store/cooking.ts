@@ -10,7 +10,7 @@ interface CookingState {
   selectedTiming: TimingVariant;
   recipe: Recipe | null;
   step: "foto" | "ingredienti" | "piatti" | "ricetta";
-  lastCallCost: number | null;
+  totalCost: number;
 }
 
 interface CookingActions {
@@ -26,7 +26,7 @@ interface CookingActions {
   setSelectedTiming: (timing: TimingVariant) => void;
   setRecipe: (recipe: Recipe) => void;
   setStep: (step: CookingState["step"]) => void;
-  setLastCallCost: (cost: number) => void;
+  addCost: (cost: number) => void;
   reset: () => void;
 }
 
@@ -38,7 +38,7 @@ const initialState: CookingState = {
   selectedTiming: "media",
   recipe: null,
   step: "foto",
-  lastCallCost: null,
+  totalCost: 0,
 };
 
 export const useCookingStore = create<CookingState & CookingActions>()(
@@ -67,7 +67,7 @@ export const useCookingStore = create<CookingState & CookingActions>()(
       setSelectedTiming: (selectedTiming) => set({ selectedTiming }),
       setRecipe: (recipe) => set({ recipe }),
       setStep: (step) => set({ step }),
-      setLastCallCost: (cost) => set({ lastCallCost: cost }),
+      addCost: (cost) => set((s) => ({ totalCost: parseFloat((s.totalCost + cost).toFixed(6)) })),
       reset: () => set(initialState),
     }),
     {
@@ -80,7 +80,7 @@ export const useCookingStore = create<CookingState & CookingActions>()(
         selectedTiming: state.selectedTiming,
         recipe: state.recipe,
         step: state.step,
-        // lastCallCost intentionally excluded — session only
+        totalCost: state.totalCost,
       }),
     }
   )

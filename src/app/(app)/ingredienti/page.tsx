@@ -188,7 +188,7 @@ export default function IngredientiPage() {
   const { getIdToken } = useAuth();
   const {
     ingredients, updateIngredient, removeIngredient, toggleConsumed,
-    setDishes, setStep, setLastCallCost,
+    setDishes, setStep, addCost,
   } = useCookingStore();
   const [loading, setLoading] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -237,7 +237,7 @@ export default function IngredientiPage() {
 
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? "Errore"); return; }
-      if (data.tokenUsage?.costEur) setLastCallCost(data.tokenUsage.costEur);
+      if (data.tokenUsage?.costEur) addCost(data.tokenUsage.costEur);
       setDishes(data.dishes);
       setStep("piatti");
       router.push("/piatti");

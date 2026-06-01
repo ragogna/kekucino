@@ -19,7 +19,7 @@ const INITIAL_MESSAGE =
 export default function ChatPage() {
   const router = useRouter();
   const { getIdToken } = useAuth();
-  const { setDishes, setIngredients, setStep, setLastCallCost } = useCookingStore();
+  const { setDishes, setIngredients, setStep, addCost } = useCookingStore();
 
   const [messages, setMessages] = useState<Message[]>([
     { role: "chef", text: INITIAL_MESSAGE },
@@ -77,7 +77,7 @@ export default function ChatPage() {
           break;
         }
 
-        if (data.tokenUsage?.costEur) setLastCallCost(data.tokenUsage.costEur);
+        if (data.tokenUsage?.costEur) addCost(data.tokenUsage.costEur);
 
         const reply = data.reply as string;
         const jsonMatch = reply.match(/\[[\s\S]*\]/);

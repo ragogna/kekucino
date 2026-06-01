@@ -24,7 +24,7 @@ const TIMING_OPTIONS: { value: TimingVariant; label: string; icon: string; desc:
 export default function RicettaPage() {
   const router = useRouter();
   const { getIdToken, user } = useAuth();
-  const { selectedDish, selectedTiming, setSelectedTiming, ingredients, recipe, setRecipe, reset, setLastCallCost } = useCookingStore();
+  const { selectedDish, selectedTiming, setSelectedTiming, ingredients, recipe, setRecipe, reset, addCost } = useCookingStore();
   const [loading, setLoading] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [saving, setSaving] = useState(false);
@@ -79,7 +79,7 @@ export default function RicettaPage() {
         toast.error(data.error ?? "Errore");
         return;
       }
-      if (data.tokenUsage?.costEur) setLastCallCost(data.tokenUsage.costEur);
+      if (data.tokenUsage?.costEur) addCost(data.tokenUsage.costEur);
       setRecipe(data.recipe);
     } catch {
       toast.error("Errore di connessione. Riprova.");
