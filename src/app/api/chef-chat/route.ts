@@ -26,16 +26,13 @@ export async function POST(req: NextRequest) {
 
     const { history, message } = parsed.data;
 
-    const model = getGeminiModel();
+    const model = getGeminiModel("gemini-2.5-flash", PROMPTS.chefChat);
 
     const MAX_RETRIES = 3;
     let lastErr: unknown;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const chat = model.startChat({
-          history,
-          systemInstruction: PROMPTS.chefChat,
-        });
+        const chat = model.startChat({ history });
 
         const result = await chat.sendMessage(message);
 
@@ -90,10 +87,16 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       );
     }
+    if (errMsg.includes("fetch failed") || errMsg.includes("TypeError") || errMsg.includes("ECONNREFUSED") || errMsg.includes("Error fetching from")) {
+      return NextResponse.json(
+        { error: "Errore di rete con l'AI. Riprova tra qualche secondo." },
+        { status: 503 }
+      );
+    }
 
     console.error("[chef-chat] error:", errStatus, errMsg);
     return NextResponse.json(
-      { error: `Errore nella chat: ${errMsg.slice(0, 120)}` },
+      { error: `Errore AI: ${errMsg.slice(0, 200)}` },
       { status: 500 }
     );
   }

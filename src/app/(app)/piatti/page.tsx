@@ -2,26 +2,20 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, ChefHat, Star, ShoppingBag, ArrowRight, Sparkles } from "lucide-react";
+import { ChefHat, Star, ShoppingBag, ArrowRight, Sparkles } from "lucide-react";
 import { useCookingStore } from "@/store/cooking";
 import { DishProposal } from "@/types";
 import { formatTime, difficultyLabel, categoryColor } from "@/lib/utils";
 
 export default function PiattiPage() {
   const router = useRouter();
-  const { dishes, selectedTiming, selectDish, setStep, setSelectedTiming } = useCookingStore();
+  const { dishes, selectDish, setStep } = useCookingStore();
 
   useEffect(() => {
     if (dishes.length === 0) {
       router.replace("/cucina");
     }
   }, [dishes, router]);
-
-  function getTimeForTiming(dish: DishProposal) {
-    if (selectedTiming === "veloce") return dish.tempo_veloce_min;
-    if (selectedTiming === "lunga") return dish.tempo_lungo_min;
-    return dish.tempo_medio_min;
-  }
 
   function chooseDish(dish: DishProposal) {
     selectDish(dish);
@@ -39,27 +33,6 @@ export default function PiattiPage() {
         <p className="text-muted-foreground text-sm">
           {dishes.length} idee per questa sera — scegli quella che preferisci
         </p>
-      </div>
-
-      {/* Timing selector */}
-      <div className="food-card p-1 flex gap-1">
-        {(["veloce", "media", "lunga"] as const).map((t) => {
-          const active = selectedTiming === t;
-          const labels = { veloce: "⚡ Veloce", media: "🕐 Media", lunga: "👨‍🍳 Elaborata" };
-          return (
-            <button
-              key={t}
-              onClick={() => setSelectedTiming(t)}
-              className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${
-                active
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {labels[t]}
-            </button>
-          );
-        })}
       </div>
 
       {/* Dishes */}
@@ -85,11 +58,10 @@ export default function PiattiPage() {
             </div>
 
             {/* Meta row */}
-            <div className="flex items-center gap-4 mb-3">
-              <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                <Clock className="w-3.5 h-3.5" />
-                <span>{formatTime(getTimeForTiming(dish))}</span>
-              </div>
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              <span className="text-xs text-muted-foreground">⚡ {formatTime(dish.tempo_veloce_min)}</span>
+              <span className="text-xs text-muted-foreground">🕐 {formatTime(dish.tempo_medio_min)}</span>
+              <span className="text-xs text-muted-foreground">👨‍🍳 {formatTime(dish.tempo_lungo_min)}</span>
               <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
                 <ChefHat className="w-3.5 h-3.5" />
                 <span>{difficultyLabel(dish.difficolta)}</span>

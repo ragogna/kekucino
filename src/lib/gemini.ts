@@ -9,8 +9,8 @@ const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
 ];
 
-export function getGeminiModel(modelName = "gemini-2.5-flash") {
-  return genAI.getGenerativeModel({ model: modelName, safetySettings });
+export function getGeminiModel(modelName = "gemini-2.5-flash", systemInstruction?: string) {
+  return genAI.getGenerativeModel({ model: modelName, safetySettings, ...(systemInstruction ? { systemInstruction } : {}) });
 }
 
 // Gemini 2.5 Flash pricing — USD per 1M tokens, non-thinking mode
