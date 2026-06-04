@@ -11,7 +11,7 @@ import { useCookingStore } from "@/store/cooking";
 import { usePantryStore } from "@/store/pantry";
 import { db } from "@/lib/firebase";
 import { compressImage } from "@/lib/utils";
-import type { DishProposal, Recipe, RecipeMode } from "@/types";
+import type { DetectedIngredient, DishProposal, Recipe, RecipeMode } from "@/types";
 
 const MAX_PHOTOS = 20;
 const MAX_SIZE_MB = 5;
@@ -82,6 +82,77 @@ export default function CucinaPage() {
     setScanIndex(-1);
   }
 
+  // Vercel limita il body delle richieste a ~4.5MB. base64 gonfia le foto del ~33%,
+  // quindi spezziamo le foto in batch sotto soglia e le analizziamo in più chiamate.
+  const MAX_BATCH_BYTES = 3.5 * 1024 * 1024;
+
+  function buildBatches(list: string[]): string[][] {
+    const batches: string[][] = [];
+    let cur: string[] = [];
+    let curSize = 0;
+    for (const p of list) {
+      const sz = (p.length * 3) / 4;
+      if (cur.length > 0 && curSize + sz > MAX_BATCH_BYTES) {
+        batches.push(cur);
+        cur = [];
+        curSize = 0;
+      }
+      cur.push(p);
+      curSize += sz;
+    }
+    if (cur.length > 0) batches.push(cur);
+    return batches;
+  }
+
+  async function analyzeBatch(batch: string[]): Promise<{ ingredients: DetectedIngredient[]; cost: number }> {
+    const MAX_RETRIES = 3;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      let res: Response;
+      try {
+        const token = await getIdToken();
+        res = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ photos: batch }),
+        });
+      } catch {
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+          continue;
+        }
+        throw new Error("Errore di connessione. Controlla la rete e riprova.");
+      }
+
+      // 413: batch ancora troppo grande → dividilo a metà e riprova
+      if (res.status === 413) {
+        if (batch.length > 1) {
+          const mid = Math.ceil(batch.length / 2);
+          const a = await analyzeBatch(batch.slice(0, mid));
+          const b = await analyzeBatch(batch.slice(mid));
+          return { ingredients: [...a.ingredients, ...b.ingredients], cost: a.cost + b.cost };
+        }
+        throw new Error("Una foto è troppo grande. Riduci la qualità e riprova.");
+      }
+
+      if (!res.ok) {
+        if (res.status >= 500 && attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+          continue;
+        }
+        let msg = "Errore nell'analisi";
+        try { msg = (await res.json()).error ?? msg; } catch { msg = `Errore ${res.status}`; }
+        throw new Error(msg);
+      }
+
+      const data = await res.json();
+      return {
+        ingredients: Array.isArray(data.ingredients) ? data.ingredients : [],
+        cost: data.tokenUsage?.costEur ?? 0,
+      };
+    }
+    throw new Error("Analisi fallita");
+  }
+
   async function analyzePhotos() {
     if (photos.length === 0) {
       toast.error("Aggiungi almeno una foto!");
@@ -89,59 +160,32 @@ export default function CucinaPage() {
     }
     setLoading(true);
     startScanAnimation();
-    const MAX_RETRIES = 3;
-    let lastErr: unknown;
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const token = await getIdToken();
-        const res = await fetch("/api/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ photos }),
-        });
-        if (!res.ok) {
-          if (res.status >= 500 && attempt < MAX_RETRIES) {
-            toast.info(`Errore del server, riprovo... (${attempt}/${MAX_RETRIES})`);
-            await new Promise((r) => setTimeout(r, 1000 * attempt));
-            continue;
-          }
-          let msg = "Errore nell'analisi";
-          try { msg = (await res.json()).error ?? msg; } catch { msg = `Errore ${res.status}`; }
-          toast.error(msg);
-          stopScanAnimation();
-          setLoading(false);
-          return;
-        }
-        const data = await res.json();
-        if (data.tokenUsage?.costEur) addCost(data.tokenUsage.costEur);
-        const ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
-        if (ingredients.length === 0) {
-          toast.error("Nessun ingrediente rilevato. Aggiungi foto più nitide o con più ingredienti.");
-          stopScanAnimation();
-          setLoading(false);
-          return;
-        }
-        stopScanAnimation();
-        addToPantry(ingredients);
-        setDishes([]);
-        setStep("ingredienti");
-        toast.success(`${ingredients.length} ingredienti aggiunti alla dispensa`);
-        router.push("/ingredienti");
-        setLoading(false);
-        return;
-      } catch (err) {
-        lastErr = err;
-        console.error(`[analyze] tentativo ${attempt}/${MAX_RETRIES}`, err);
-        if (attempt < MAX_RETRIES) {
-          toast.info(`Connessione instabile, riprovo... (${attempt}/${MAX_RETRIES})`);
-          await new Promise((r) => setTimeout(r, 1000 * attempt));
-        }
+    try {
+      const batches = buildBatches(photos);
+      let all: DetectedIngredient[] = [];
+      let totalCost = 0;
+      for (const batch of batches) {
+        const r = await analyzeBatch(batch);
+        all = all.concat(r.ingredients);
+        totalCost += r.cost;
       }
+      if (totalCost) addCost(totalCost);
+      if (all.length === 0) {
+        toast.error("Nessun ingrediente rilevato. Aggiungi foto più nitide o con più ingredienti.");
+        return;
+      }
+      addToPantry(all);
+      setDishes([]);
+      setStep("ingredienti");
+      toast.success(`${all.length} ingredienti aggiunti alla dispensa`);
+      router.push("/ingredienti");
+    } catch (err) {
+      console.error("[analyze]", err);
+      toast.error(err instanceof Error ? err.message : "Errore nell'analisi delle foto");
+    } finally {
+      stopScanAnimation();
+      setLoading(false);
     }
-    console.error("[analyze] tutti i tentativi falliti", lastErr);
-    toast.error("Errore di connessione. Controlla la rete e riprova.");
-    stopScanAnimation();
-    setLoading(false);
   }
 
   // Voice input
