@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { Camera, BookOpen, LogOut, MessageCircle } from "lucide-react";
+import { Camera, BookOpen, LogOut, MessageCircle, Refrigerator } from "lucide-react";
 import { RobotChefIcon } from "@/components/RobotChefIcon";
 import { PantrySync } from "@/components/PantrySync";
 import { useCookingStore } from "@/store/cooking";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 const navItems = [
   { href: "/cucina", icon: Camera, label: "Cucina" },
+  { href: "/ingredienti", icon: Refrigerator, label: "Dispensa" },
   { href: "/chat", icon: MessageCircle, label: "Chef" },
   { href: "/storia", icon: BookOpen, label: "Storia" },
 ];
