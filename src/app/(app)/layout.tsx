@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Camera, BookOpen, LogOut, MessageCircle } from "lucide-react";
 import { RobotChefIcon } from "@/components/RobotChefIcon";
+import { PantrySync } from "@/components/PantrySync";
 import { useCookingStore } from "@/store/cooking";
 import { APP_VERSION, formatCostEur } from "@/lib/utils";
 import Link from "next/link";
@@ -47,6 +48,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background pb-safe-bottom">
+      <PantrySync />
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="flex items-center justify-between px-4 h-14 max-w-lg mx-auto">

@@ -7,6 +7,8 @@ interface PantryState {
 }
 
 interface PantryActions {
+  /** Replace the whole pantry (used by the Firestore cross-device sync). */
+  setItems: (items: DetectedIngredient[]) => void;
   /** Merge newly recognised ingredients into the pantry (dedup by name). */
   addItems: (items: DetectedIngredient[]) => void;
   /** Add a single ingredient typed by hand. Returns false if already present. */
@@ -23,6 +25,7 @@ export const usePantryStore = create<PantryState & PantryActions>()(
   persist(
     (set) => ({
       items: [],
+      setItems: (items) => set({ items: Array.isArray(items) ? items : [] }),
       addItems: (incoming) =>
         set((s) => {
           if (!Array.isArray(incoming)) return s;
