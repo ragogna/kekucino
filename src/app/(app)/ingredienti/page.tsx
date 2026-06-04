@@ -29,17 +29,19 @@ interface PantryItemProps {
   index: number;
   editingIndex: number | null;
   editValue: string;
-  onStartEdit: (index: number, nome: string) => void;
+  editQty: string;
+  onStartEdit: (index: number, nome: string, quantita: string) => void;
   onSaveEdit: (index: number) => void;
   onCancelEdit: () => void;
   onSetEditValue: (v: string) => void;
+  onSetEditQty: (v: string) => void;
   onRemove: (index: number) => void;
   onToggleConsumed: (index: number) => void;
 }
 
 function PantryItem({
-  ing, index, editingIndex, editValue,
-  onStartEdit, onSaveEdit, onCancelEdit, onSetEditValue, onRemove, onToggleConsumed,
+  ing, index, editingIndex, editValue, editQty,
+  onStartEdit, onSaveEdit, onCancelEdit, onSetEditValue, onSetEditQty, onRemove, onToggleConsumed,
 }: PantryItemProps) {
   const [swipeX, setSwipeX] = useState(0);
   const isDragging = useRef(false);
@@ -108,27 +110,43 @@ function PantryItem({
         {/* Name + qty */}
         <div className="flex-1 min-w-0">
           {isEditing ? (
-            <input
-              autoFocus
-              value={editValue}
-              onChange={(e) => onSetEditValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onSaveEdit(index);
-                if (e.key === "Escape") onCancelEdit();
-              }}
-              className="w-full bg-transparent text-sm font-semibold border-b border-primary outline-none pb-0.5"
-              onClick={(e) => e.stopPropagation()}
-            />
+            <>
+              <input
+                autoFocus
+                value={editValue}
+                onChange={(e) => onSetEditValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onSaveEdit(index);
+                  if (e.key === "Escape") onCancelEdit();
+                }}
+                placeholder="Nome"
+                className="w-full bg-transparent text-sm font-semibold border-b border-primary outline-none pb-0.5"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <input
+                value={editQty}
+                onChange={(e) => onSetEditQty(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onSaveEdit(index);
+                  if (e.key === "Escape") onCancelEdit();
+                }}
+                placeholder="Quantità (es: 3 pezzi, 200g)"
+                className="w-full bg-transparent text-xs text-muted-foreground border-b border-border outline-none mt-1 pb-0.5"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </>
           ) : (
-            <p
-              className={`text-sm font-semibold truncate ${
-                ing.consumed ? "line-through text-muted-foreground" : "text-foreground"
-              }`}
-            >
-              {ing.nome}
-            </p>
+            <>
+              <p
+                className={`text-sm font-semibold truncate ${
+                  ing.consumed ? "line-through text-muted-foreground" : "text-foreground"
+                }`}
+              >
+                {ing.nome}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{ing.quantita_stimata}</p>
+            </>
           )}
-          <p className="text-xs text-muted-foreground mt-0.5">{ing.quantita_stimata}</p>
         </div>
 
         {/* Actions */}
@@ -159,7 +177,7 @@ function PantryItem({
           ) : (
             <>
               <button
-                onClick={(e) => { e.stopPropagation(); onStartEdit(index, ing.nome); }}
+                onClick={(e) => { e.stopPropagation(); onStartEdit(index, ing.nome, ing.quantita_stimata); }}
                 className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
               >
                 <Edit2 className="w-3.5 h-3.5" />
@@ -196,16 +214,24 @@ export default function IngredientiPage() {
   const [loading, setLoading] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [editQty, setEditQty] = useState("");
   const [filter, setFilter] = useState<"tutti" | "disponibili" | "esauriti">("tutti");
   const [newItem, setNewItem] = useState("");
 
-  function startEdit(index: number, nome: string) {
+  function startEdit(index: number, nome: string, quantita: string) {
     setEditingIndex(index);
     setEditValue(nome);
+    setEditQty(quantita);
   }
 
   function saveEdit(index: number) {
-    if (editValue.trim()) updateIngredient(index, { ...ingredients[index], nome: editValue.trim() });
+    if (editValue.trim()) {
+      updateIngredient(index, {
+        ...ingredients[index],
+        nome: editValue.trim(),
+        quantita_stimata: editQty.trim() || ingredients[index].quantita_stimata,
+      });
+    }
     setEditingIndex(null);
   }
 
@@ -339,10 +365,12 @@ export default function IngredientiPage() {
                     index={index}
                     editingIndex={editingIndex}
                     editValue={editValue}
+                    editQty={editQty}
                     onStartEdit={startEdit}
                     onSaveEdit={saveEdit}
                     onCancelEdit={() => setEditingIndex(null)}
                     onSetEditValue={setEditValue}
+                    onSetEditQty={setEditQty}
                     onRemove={removeIngredient}
                     onToggleConsumed={toggleConsumed}
                   />
