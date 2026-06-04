@@ -12,7 +12,7 @@ const BodySchema = z.object({
     emoji: z.string(),
     categoria: z.string(),
   }),
-  timing: z.enum(["veloce", "media", "lunga"]),
+  mode: z.enum(["tradizionale", "stellato"]),
   recipe: z.record(z.string(), z.unknown()),
 });
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Dati non validi" }, { status: 400 });
     }
 
-    const { dish, timing, recipe } = parsed.data;
+    const { dish, mode, recipe } = parsed.data;
 
     const docRef = adminDb()
       .collection("users")
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       id: docRef.id,
       userId: uid,
       dish,
-      timing,
+      mode,
       recipe,
       createdAt: FieldValue.serverTimestamp(),
     });

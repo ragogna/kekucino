@@ -12,6 +12,7 @@ const HistoryItemSchema = z.object({
 const BodySchema = z.object({
   history: z.array(HistoryItemSchema),
   message: z.string().min(1).max(1000),
+  pantry: z.array(z.string()).optional().default([]),
 });
 
 export async function POST(req: NextRequest) {
@@ -24,9 +25,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Dati non validi" }, { status: 400 });
     }
 
-    const { history, message } = parsed.data;
+    const { history, message, pantry } = parsed.data;
 
-    const model = getGeminiModel("gemini-2.5-flash", PROMPTS.chefChat);
+    const model = getGeminiModel("gemini-2.5-flash", PROMPTS.chefChat(pantry.join(", ")));
 
     const MAX_RETRIES = 3;
     let lastErr: unknown;

@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { Recipe, DishProposal, TimingVariant } from "@/types";
+import { Recipe, DishProposal, RecipeMode } from "@/types";
 import { formatTime, difficultyLabel } from "./utils";
 
 const AMBER = [217, 119, 6] as const;
@@ -7,7 +7,7 @@ const DARK = [28, 25, 23] as const;
 const GRAY = [120, 113, 108] as const;
 const LIGHT_BG = [250, 249, 247] as const;
 
-export function exportRecipePDF(dish: DishProposal, timing: TimingVariant, recipe: Recipe) {
+export function exportRecipePDF(dish: DishProposal, mode: RecipeMode, recipe: Recipe) {
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const W = 210;
   const MARGIN = 16;
@@ -61,8 +61,8 @@ export function exportRecipePDF(dish: DishProposal, timing: TimingVariant, recip
 
   setFont(8);
   colorText(255, 255, 255);
-  const timingLabels = { veloce: "⚡ Versione Veloce", media: "🕐 Versione Media (Consigliata)", lunga: "👨‍🍳 Versione Elaborata" };
-  pdf.text(timingLabels[timing], MARGIN, 38);
+  const modeLabels = { tradizionale: "Versione Tradizionale", stellato: "Versione Stellato (d'autore)" };
+  pdf.text(modeLabels[mode], MARGIN, 38);
   pdf.text(`${formatTime(recipe.tempo_totale_min)} · ${recipe.porzioni} persone · ${difficultyLabel(recipe.difficolta)}`, W - MARGIN, 38, { align: "right" });
 
   y = 55;

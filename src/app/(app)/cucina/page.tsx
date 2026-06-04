@@ -8,9 +8,10 @@ import Link from "next/link";
 import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { useAuth } from "@/hooks/useAuth";
 import { useCookingStore } from "@/store/cooking";
+import { usePantryStore } from "@/store/pantry";
 import { db } from "@/lib/firebase";
 import { compressImage } from "@/lib/utils";
-import type { DishProposal, Recipe, TimingVariant } from "@/types";
+import type { DishProposal, Recipe, RecipeMode } from "@/types";
 
 const MAX_PHOTOS = 20;
 const MAX_SIZE_MB = 5;
@@ -18,7 +19,8 @@ const MAX_SIZE_MB = 5;
 interface FavoriteItem {
   id: string;
   dish: { id: string; nome: string; emoji: string; categoria: string; descrizione: string };
-  timing: TimingVariant;
+  mode?: RecipeMode;
+  timing?: string; // fallback ricette vecchie
   recipe: Recipe;
   isFavorite: boolean;
 }
@@ -27,9 +29,10 @@ export default function CucinaPage() {
   const router = useRouter();
   const { getIdToken, user } = useAuth();
   const {
-    photos, addPhoto, removePhoto, setIngredients, setDishes,
-    reset, setStep, setRecipe, selectDish, setSelectedTiming, addCost,
+    photos, addPhoto, removePhoto, setDishes,
+    reset, setStep, setRecipe, selectDish, setSelectedMode, setPorzioni, addCost,
   } = useCookingStore();
+  const addToPantry = usePantryStore((s) => s.addItems);
   const [loading, setLoading] = useState(false);
   const [scanIndex, setScanIndex] = useState(-1);
   const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -119,9 +122,10 @@ export default function CucinaPage() {
           return;
         }
         stopScanAnimation();
-        setIngredients(ingredients);
+        addToPantry(ingredients);
         setDishes([]);
         setStep("ingredienti");
+        toast.success(`${ingredients.length} ingredienti aggiunti alla dispensa`);
         router.push("/ingredienti");
         setLoading(false);
         return;
@@ -185,9 +189,11 @@ export default function CucinaPage() {
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? "Errore nell'analisi"); return; }
       if (data.tokenUsage?.costEur) addCost(data.tokenUsage.costEur);
-      setIngredients(data.ingredients);
+      const voiceIngs = Array.isArray(data.ingredients) ? data.ingredients : [];
+      addToPantry(voiceIngs);
       setDishes([]);
       setStep("ingredienti");
+      toast.success(`${voiceIngs.length} ingredienti aggiunti alla dispensa`);
       router.push("/ingredienti");
     } catch {
       toast.error("Errore di connessione");
@@ -227,9 +233,7 @@ export default function CucinaPage() {
       nome: fav.dish.nome,
       descrizione: fav.dish.descrizione ?? "",
       difficolta: fav.recipe?.difficolta ?? 2,
-      tempo_veloce_min: t,
-      tempo_medio_min: t,
-      tempo_lungo_min: t,
+      tempo_min: t,
       ingredienti_principali: fav.recipe?.ingredienti?.map((i: any) => i.nome).slice(0, 4) ?? [],
       ingredienti_mancanti: [],
       categoria: fav.dish.categoria as DishProposal["categoria"],
@@ -238,7 +242,9 @@ export default function CucinaPage() {
     };
     selectDish(fakeDish);
     setRecipe(fav.recipe);
-    setSelectedTiming(fav.timing);
+    // ricetta già salvata: usa la modalità salvata (fallback tradizionale per le vecchie)
+    setSelectedMode(fav.mode ?? "tradizionale");
+    if (fav.recipe?.porzioni) setPorzioni(fav.recipe.porzioni);
     setStep("ricetta");
     router.push("/ricetta");
   }

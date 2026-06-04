@@ -5,26 +5,27 @@ import { useRouter } from "next/navigation";
 import {
   Clock, ChefHat, Users, Utensils, CheckCircle2,
   Circle, Lightbulb, AlertTriangle, Wine, Leaf,
-  BookmarkPlus, RotateCcw, Sparkles, Heart, FileDown
+  BookmarkPlus, RotateCcw, Sparkles, Heart, FileDown, Minus, Plus
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useCookingStore } from "@/store/cooking";
+import { usePantryStore } from "@/store/pantry";
 import { formatTime, difficultyLabel } from "@/lib/utils";
-import { TimingVariant } from "@/types";
+import { RecipeMode } from "@/types";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-const TIMING_OPTIONS: { value: TimingVariant; label: string; icon: string; desc: string }[] = [
-  { value: "veloce", label: "Veloce", icon: "⚡", desc: "Massima praticità" },
-  { value: "media", label: "Media", icon: "🕐", desc: "Consigliata dallo chef" },
-  { value: "lunga", label: "Elaborata", icon: "👨‍🍳", desc: "Per il massimo risultato" },
+const MODE_OPTIONS: { value: RecipeMode; label: string; icon: string; desc: string }[] = [
+  { value: "tradizionale", label: "Tradizionale", icon: "🍝", desc: "La ricetta autentica, fatta a regola d'arte" },
+  { value: "stellato", label: "Stellato", icon: "⭐", desc: "Versione d'autore: più tecnica, risultato eccezionale" },
 ];
 
 export default function RicettaPage() {
   const router = useRouter();
   const { getIdToken, user } = useAuth();
-  const { selectedDish, selectedTiming, setSelectedTiming, ingredients, recipe, setRecipe, reset, addCost } = useCookingStore();
+  const { selectedDish, selectedMode, setSelectedMode, porzioni, setPorzioni, recipe, setRecipe, reset, addCost } = useCookingStore();
+  const pantryItems = usePantryStore((s) => s.items);
   const [loading, setLoading] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [saving, setSaving] = useState(false);
@@ -41,23 +42,18 @@ export default function RicettaPage() {
     if (selectedDish && !recipe) {
       fetchRecipe();
     }
-  }, [selectedDish, selectedTiming]);
+  }, [selectedDish, selectedMode, porzioni]);
 
   async function fetchRecipe() {
     if (!selectedDish) return;
     setLoading(true);
     setCompletedSteps(new Set());
 
-    const timeMap = {
-      veloce: selectedDish.tempo_veloce_min,
-      media: selectedDish.tempo_medio_min,
-      lunga: selectedDish.tempo_lungo_min,
-    };
-
     try {
       const token = await getIdToken();
-      const ingredientList = ingredients.length > 0
-        ? ingredients.map((i) => i.nome).join(", ")
+      const available = pantryItems.filter((i) => !i.consumed);
+      const ingredientList = available.length > 0
+        ? available.map((i) => i.nome).join(", ")
         : selectedDish.ingredienti_principali.join(", ");
 
       const res = await fetch("/api/recipe", {
@@ -68,9 +64,10 @@ export default function RicettaPage() {
         },
         body: JSON.stringify({
           dishName: selectedDish.nome,
-          timing: selectedTiming,
-          timeMinutes: timeMap[selectedTiming],
+          mode: selectedMode,
+          porzioni,
           ingredients: ingredientList,
+          adattato: selectedDish.adattato ?? false,
         }),
       });
 
@@ -88,10 +85,19 @@ export default function RicettaPage() {
     }
   }
 
-  function changeTiming(timing: TimingVariant) {
-    setSelectedTiming(timing);
+  function changeMode(mode: RecipeMode) {
+    if (mode === selectedMode) return;
+    setSelectedMode(mode);
     setRecipe(null as any);
-    fetchRecipe();
+    // fetch parte dall'effect su selectedMode
+  }
+
+  function changePorzioni(delta: number) {
+    const next = Math.max(1, Math.min(12, porzioni + delta));
+    if (next === porzioni) return;
+    setPorzioni(next);
+    setRecipe(null as any);
+    // fetch parte dall'effect su porzioni
   }
 
   function toggleStep(num: number) {
@@ -114,7 +120,7 @@ export default function RicettaPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ dish: selectedDish, timing: selectedTiming, recipe }),
+        body: JSON.stringify({ dish: selectedDish, mode: selectedMode, recipe }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -152,7 +158,7 @@ export default function RicettaPage() {
     if (!selectedDish || !recipe) return;
     try {
       const { exportRecipePDF } = await import("@/lib/export-pdf");
-      exportRecipePDF(selectedDish, selectedTiming, recipe);
+      exportRecipePDF(selectedDish, selectedMode, recipe);
       toast.success("PDF esportato!");
     } catch {
       toast.error("Errore nell'esportazione PDF");
@@ -161,15 +167,9 @@ export default function RicettaPage() {
 
   if (!selectedDish) return null;
 
-  const timeMap = {
-    veloce: selectedDish.tempo_veloce_min,
-    media: selectedDish.tempo_medio_min,
-    lunga: selectedDish.tempo_lungo_min,
-  };
-
   return (
     <div className="pb-24">
-      {/* Timing selector */}
+      {/* Mode + porzioni selector */}
       <div className="px-4 pt-4 pb-2 space-y-4">
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
@@ -183,36 +183,54 @@ export default function RicettaPage() {
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
             Scegli la versione
           </p>
-          <div className="grid grid-cols-3 gap-2">
-            {TIMING_OPTIONS.map((opt) => {
-              const active = selectedTiming === opt.value;
-              const isRecommended = opt.value === "media";
+          <div className="grid grid-cols-2 gap-2">
+            {MODE_OPTIONS.map((opt) => {
+              const active = selectedMode === opt.value;
               return (
                 <button
                   key={opt.value}
-                  onClick={() => changeTiming(opt.value)}
-                  className={`food-card p-3 flex flex-col items-center gap-1 transition-all relative ${
+                  onClick={() => changeMode(opt.value)}
+                  disabled={loading}
+                  className={`food-card p-3 flex flex-col items-center gap-1 text-center transition-all disabled:opacity-60 ${
                     active ? "border-primary bg-primary/5" : "hover:border-primary/30"
                   }`}
                 >
-                  {isRecommended && (
-                    <div className="absolute -top-2 left-1/2 -translate-x-1/2">
-                      <span className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        CHEF
-                      </span>
-                    </div>
-                  )}
-                  <span className="text-lg">{opt.icon}</span>
-                  <span className={`text-xs font-semibold ${active ? "text-primary" : "text-foreground"}`}>
+                  <span className="text-xl">{opt.icon}</span>
+                  <span className={`text-sm font-bold ${active ? "text-primary" : "text-foreground"}`}>
                     {opt.label}
                   </span>
-                  <span className="text-[10px] text-muted-foreground text-center">{opt.desc}</span>
-                  <span className="text-[10px] text-muted-foreground font-medium">
-                    {formatTime(timeMap[opt.value])}
-                  </span>
+                  <span className="text-[10px] text-muted-foreground leading-tight">{opt.desc}</span>
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Porzioni stepper */}
+        <div className="food-card p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">Porzioni</span>
+            <span className="text-xs text-muted-foreground">(quantità per {porzioni} {porzioni === 1 ? "persona" : "persone"})</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => changePorzioni(-1)}
+              disabled={loading || porzioni <= 1}
+              className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-foreground hover:border-primary disabled:opacity-40 transition-all"
+              aria-label="Riduci porzioni"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <span className="text-lg font-bold text-primary w-6 text-center">{porzioni}</span>
+            <button
+              onClick={() => changePorzioni(1)}
+              disabled={loading || porzioni >= 12}
+              className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-foreground hover:border-primary disabled:opacity-40 transition-all"
+              aria-label="Aumenta porzioni"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
@@ -243,6 +261,23 @@ export default function RicettaPage() {
               </p>
             </div>
           </div>
+
+          {/* Adattamento dispensa */}
+          {(recipe.nota_adattamento || selectedDish.adattato) && (
+            <div className="bg-blue-50 dark:bg-blue-950/20 rounded-2xl p-4 border border-blue-200 dark:border-blue-800">
+              <div className="flex gap-3">
+                <Leaf className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300 mb-1">
+                    Riadattato alla tua dispensa
+                  </p>
+                  <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
+                    {recipe.nota_adattamento || selectedDish.nota_adattamento || "Versione adattata agli ingredienti disponibili: non è la ricetta originale."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Meta */}
           <div className="grid grid-cols-4 gap-2">

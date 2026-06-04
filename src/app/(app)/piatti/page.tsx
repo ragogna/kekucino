@@ -59,9 +59,7 @@ export default function PiattiPage() {
 
             {/* Meta row */}
             <div className="flex items-center gap-3 mb-3 flex-wrap">
-              <span className="text-xs text-muted-foreground">⚡ {formatTime(dish.tempo_veloce_min)}</span>
-              <span className="text-xs text-muted-foreground">🕐 {formatTime(dish.tempo_medio_min)}</span>
-              <span className="text-xs text-muted-foreground">👨‍🍳 {formatTime(dish.tempo_lungo_min)}</span>
+              <span className="text-xs text-muted-foreground">🕐 {formatTime(dish.tempo_min)}</span>
               <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
                 <ChefHat className="w-3.5 h-3.5" />
                 <span>{difficultyLabel(dish.difficolta)}</span>
@@ -79,6 +77,19 @@ export default function PiattiPage() {
                 ✨ {dish.wow_factor}
               </p>
             </div>
+
+            {/* Riadattamento dispensa */}
+            {dish.adattato && (
+              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-xl p-3 mb-3 flex gap-2">
+                <span className="text-sm">🔄</span>
+                <div>
+                  <p className="text-xs font-bold text-blue-700 dark:text-blue-300">Riadattato alla dispensa</p>
+                  {dish.nota_adattamento && (
+                    <p className="text-xs text-blue-800 dark:text-blue-200 mt-0.5">{dish.nota_adattamento}</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Missing ingredients */}
             {dish.ingredienti_mancanti?.length > 0 && (

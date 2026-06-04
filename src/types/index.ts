@@ -17,17 +17,19 @@ export interface DishProposal {
   nome: string;
   descrizione: string;
   difficolta: number;
-  tempo_veloce_min: number;
-  tempo_medio_min: number;
-  tempo_lungo_min: number;
+  tempo_min: number;
   ingredienti_principali: string[];
   ingredienti_mancanti: string[];
   categoria: "primo" | "secondo" | "contorno" | "dolce" | "aperitivo" | "piatto_unico";
   wow_factor: string;
   emoji: string;
+  /** true quando il piatto è riadattato alla dispensa e non è la ricetta originale */
+  adattato?: boolean;
+  /** spiega come differisce dall'originale (sostituzioni, ingredienti mancanti) */
+  nota_adattamento?: string;
 }
 
-export type TimingVariant = "veloce" | "media" | "lunga";
+export type RecipeMode = "tradizionale" | "stellato";
 
 export interface RecipeIngredient {
   nome: string;
@@ -60,13 +62,15 @@ export interface Recipe {
   consiglio_finale: string;
   abbinamento_vino?: string;
   varianti?: string;
+  /** presente quando la ricetta è riadattata alla dispensa: spiega le differenze dall'originale */
+  nota_adattamento?: string;
 }
 
 export interface SavedRecipe {
   id: string;
   userId: string;
   dish: DishProposal;
-  timing: TimingVariant;
+  mode: RecipeMode;
   recipe: Recipe;
   photos: string[];
   createdAt: number;

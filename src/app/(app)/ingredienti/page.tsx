@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChefHat, ArrowRight, Edit2, Check, X, RotateCcw } from "lucide-react";
+import { ChefHat, ArrowRight, Edit2, Check, X, RotateCcw, Plus, Camera } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { useCookingStore } from "@/store/cooking";
+import { usePantryStore } from "@/store/pantry";
 import { DetectedIngredient } from "@/types";
 import { ingredientCategoryIcon } from "@/lib/utils";
 
@@ -187,17 +189,15 @@ export default function IngredientiPage() {
   const router = useRouter();
   const { getIdToken } = useAuth();
   const {
-    ingredients, updateIngredient, removeIngredient, toggleConsumed,
-    setDishes, setStep, addCost,
-  } = useCookingStore();
+    items: ingredients, updateItem: updateIngredient, removeItem: removeIngredient,
+    toggleConsumed, addManual,
+  } = usePantryStore();
+  const { setDishes, setStep, addCost } = useCookingStore();
   const [loading, setLoading] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [filter, setFilter] = useState<"tutti" | "disponibili" | "esauriti">("tutti");
-
-  useEffect(() => {
-    if (!ingredients || ingredients.length === 0) router.replace("/cucina");
-  }, [ingredients, router]);
+  const [newItem, setNewItem] = useState("");
 
   function startEdit(index: number, nome: string) {
     setEditingIndex(index);
@@ -207,6 +207,15 @@ export default function IngredientiPage() {
   function saveEdit(index: number) {
     if (editValue.trim()) updateIngredient(index, { ...ingredients[index], nome: editValue.trim() });
     setEditingIndex(null);
+  }
+
+  function addNew() {
+    const ok = addManual(newItem);
+    if (!ok) {
+      toast.error(newItem.trim() ? "Già in dispensa" : "Scrivi un ingrediente");
+      return;
+    }
+    setNewItem("");
   }
 
   const available = ingredients.filter((i) => !i.consumed);
@@ -284,10 +293,30 @@ export default function IngredientiPage() {
         ))}
       </div>
 
+      {/* Manual add */}
+      <div className="flex gap-2">
+        <input
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addNew()}
+          placeholder="Aggiungi un ingrediente alla dispensa..."
+          className="flex-1 bg-secondary rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
+        />
+        <button
+          onClick={addNew}
+          className="w-11 h-11 chef-gradient rounded-xl flex items-center justify-center flex-shrink-0"
+          aria-label="Aggiungi"
+        >
+          <Plus className="w-5 h-5 text-white" />
+        </button>
+      </div>
+
       {/* Hint */}
-      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-        <span>←</span> Scorri un ingrediente per segnarlo esaurito
-      </p>
+      {ingredients.length > 0 && (
+        <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+          <span>←</span> Scorri un ingrediente per segnarlo esaurito
+        </p>
+      )}
 
       {/* Ingredient list by category */}
       <div className="space-y-5">
@@ -322,32 +351,49 @@ export default function IngredientiPage() {
             </div>
           ))}
 
-        {displayed.length === 0 && (
+        {displayed.length === 0 && ingredients.length > 0 && (
           <div className="text-center py-8 text-muted-foreground text-sm">
             {filter === "esauriti" ? "Nessun ingrediente esaurito." : "Nessun ingrediente."}
           </div>
         )}
+
+        {ingredients.length === 0 && (
+          <Link
+            href="/cucina"
+            className="food-card p-6 flex flex-col items-center gap-2 text-center hover:border-primary/40 transition-all"
+          >
+            <div className="w-12 h-12 chef-gradient rounded-2xl flex items-center justify-center">
+              <Camera className="w-6 h-6 text-white" />
+            </div>
+            <p className="font-semibold text-foreground">La dispensa è vuota</p>
+            <p className="text-xs text-muted-foreground">
+              Fotografa il frigo o aggiungi gli ingredienti a mano qui sopra
+            </p>
+          </Link>
+        )}
       </div>
 
       {/* CTA */}
-      <button
-        onClick={generateDishes}
-        disabled={loading || available.length === 0}
-        className="w-full chef-gradient text-white rounded-2xl py-4 px-6 font-semibold text-base flex items-center justify-center gap-2 disabled:opacity-60 transition-all"
-      >
-        {loading ? (
-          <>
-            <div className="w-5 h-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-            Il chef sta pensando...
-          </>
-        ) : (
-          <>
-            <ChefHat className="w-5 h-5" />
-            Proponi piatti con {available.length} ingredienti
-            <ArrowRight className="w-4 h-4" />
-          </>
-        )}
-      </button>
+      {ingredients.length > 0 && (
+        <button
+          onClick={generateDishes}
+          disabled={loading || available.length === 0}
+          className="w-full chef-gradient text-white rounded-2xl py-4 px-6 font-semibold text-base flex items-center justify-center gap-2 disabled:opacity-60 transition-all"
+        >
+          {loading ? (
+            <>
+              <div className="w-5 h-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+              Il chef sta pensando...
+            </>
+          ) : (
+            <>
+              <ChefHat className="w-5 h-5" />
+              Proponi piatti con {available.length} ingredienti
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      )}
     </div>
   );
 }

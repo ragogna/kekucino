@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Send, ChefHat, User, RotateCcw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCookingStore } from "@/store/cooking";
+import { usePantryStore } from "@/store/pantry";
 import { toast } from "sonner";
 import type { DishProposal } from "@/types";
 
@@ -19,7 +20,8 @@ const INITIAL_MESSAGE =
 export default function ChatPage() {
   const router = useRouter();
   const { getIdToken } = useAuth();
-  const { setDishes, setIngredients, setStep, addCost } = useCookingStore();
+  const { setDishes, setStep, addCost } = useCookingStore();
+  const pantryItems = usePantryStore((s) => s.items);
 
   const [messages, setMessages] = useState<Message[]>([
     { role: "chef", text: INITIAL_MESSAGE },
@@ -56,13 +58,14 @@ export default function ChatPage() {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         const token = await getIdToken();
+        const pantry = pantryItems.filter((i) => !i.consumed).map((i) => i.nome);
         const res = await fetch("/api/chef-chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ history, message: text }),
+          body: JSON.stringify({ history, message: text, pantry }),
         });
 
         const data = await res.json();
@@ -86,7 +89,6 @@ export default function ChatPage() {
             const dishes = JSON.parse(jsonMatch[0]) as DishProposal[];
             if (Array.isArray(dishes) && dishes.length > 0 && dishes[0].nome) {
               setDishes(dishes);
-              setIngredients([]);
               setStep("piatti");
               router.push("/piatti");
               return;

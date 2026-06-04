@@ -12,7 +12,8 @@ import Link from "next/link";
 interface HistoryItem {
   id: string;
   dish: { nome: string; emoji: string; categoria: string };
-  timing: string;
+  mode?: string;
+  timing?: string;
   recipe: { titolo: string; tempo_totale_min: number; difficolta: number };
   createdAt: { seconds: number };
   isFavorite?: boolean;
@@ -70,7 +71,10 @@ export default function StoriaPage() {
   }
 
   const displayed = showFavOnly ? items.filter((i) => i.isFavorite) : items;
-  const timingLabel: Record<string, string> = {
+  const tagLabel: Record<string, string> = {
+    tradizionale: "🍝 Tradizionale",
+    stellato: "⭐ Stellato",
+    // fallback ricette vecchie (timing)
     veloce: "⚡ Veloce",
     media: "🕐 Media",
     lunga: "👨‍🍳 Elaborata",
@@ -160,7 +164,10 @@ export default function StoriaPage() {
                       <Clock className="w-3 h-3" />
                       {formatTime(item.recipe.tempo_totale_min ?? 0)}
                     </span>
-                    <span>{timingLabel[item.timing] ?? item.timing}</span>
+                    {(() => {
+                      const tag = item.mode ?? item.timing;
+                      return tag ? <span>{tagLabel[tag] ?? tag}</span> : null;
+                    })()}
                     {item.createdAt?.seconds && (
                       <span>
                         {new Date(item.createdAt.seconds * 1000).toLocaleDateString("it-IT", {
